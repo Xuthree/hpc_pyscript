@@ -1,5 +1,6 @@
-from subprocess import CompletedProcess
-from typing import Any
+# from collections import defaultdict
+from typing import Optional
+
 
 class Genincar:
     p = {  # dictionary to hold the routine parameters of incar file
@@ -59,7 +60,8 @@ class Genincar:
         'ibrion': 2,
     }
 
-    def __init__(self, param_dict: dict = None, **kwargs):
+    def __init__(self, param_dict: Optional[dict] = None, **kwargs):
+        # param_dict = dict(param_dict)
         if param_dict is None:
             self.params = self.default_incar_params
         else:
@@ -78,7 +80,7 @@ class Genincar:
         elif key in self.p['str_keys']:
             val = str(value)
         elif key in self.p['exp_keys']:
-            val = f'{value:5.2e}'
+            val = f'{(value):5.2e}'
         elif key in self.p['special_keys']:
             if isinstance(value, bool):
                 val = f'.{value}.'
@@ -89,7 +91,7 @@ class Genincar:
         return val
 
     def add_pa(self, **kwargs):
-        all_pa = [i for value in self.p.values() for i in value]
+        all_pa = (i for value in self.p.values() for i in value)
         for key in kwargs:
             if key in all_pa:
                 self.params[key] = kwargs[key]
