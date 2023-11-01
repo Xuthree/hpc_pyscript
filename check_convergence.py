@@ -11,11 +11,9 @@ def get_converge(incar: Path ='./INCAR'):
             EDIFFG = float(line.split()[2])
     return EDIFF, EDIFFG
 
-# with open(("./INCAR"), 'r') as f:
-#     print(f.readlines()[3])
+energy_convergence, force_convergence =get_converge("./INCAR")  #收敛标准
 print(get_converge("./INCAR"))
 # energy_convergence = 1e-5  # 能量收敛标准
-# position_conv erg ence = 0.01  # 原子位置收敛标准
 # force_convergence = 0.01  # 力收敛标准
 #
 # # 打开 OUTCAR 文件

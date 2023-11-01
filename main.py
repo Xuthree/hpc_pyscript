@@ -6,8 +6,12 @@ from typing import Any
 import time
 from gen_input import Genincar
 from enum import Enum
-class Glnum(Enum):
-    w_v
+
+class Strnum_vdw(Enum):
+    w_v = 1
+    n_v = 0
+    w_v_d = 2
+
 
 def mk_floders(path) -> None:
     if path.exists():
@@ -47,8 +51,9 @@ def file_is(file_path: Path) -> bool:
     return file_path.exists() and file_path.stat().st_size != 0
 
 
-def check_input_files():
-    input_files = ("INCAR", "POTCAR", "KPOINTS", "POSCAR", "vasp_dcu.job")
+def check_input_files(fld):
+    files = ("INCAR", "POTCAR", "KPOINTS", "POSCAR", "vasp_dcu.job")
+    input_files = (Path(fld / i)  for i in files)
     miss_meg = []
 
     for file in  input_files:
@@ -62,54 +67,65 @@ def check_input_files():
         return True
 
 incar = Genincar()
-def gen_input_file(fld:Path, job_fld, ph:str='w_v') -> None:
-    if ph == 'w_v':
+def gen_input_file(fld:Path, ph:Strnum_vdw, job_fld=Path.home()) -> None:
+    if ph == 1:
         incar.add_pa(ivdw=12)
-    with open("INCAR", "w") as f_in:
+    elif ph == 3:
+        incar.add_pa(ivdw=12,idipol=3, ldipol=True)
+    else:
+        pass
+    with open(fld / "INCAR", "w") as f_in:
         f_in.write(str(incar))
 
-    copy_file(fld / "POSCAR", f.name)
+    copy_file(fld, Path.cwd() / "POSCAR" )
     shutil.copy(job_fld / "vasp_dcu.job", fld)
 
     for kp_pot in ('KPOINTS', 'POTCAR'):
         create_file(fld, kp_pot)
+    print(f"{fld} 文件生成成功")
 
-def from_txt_fld(ph: Path, fl_name: str, gen_num=1) -> None:
+def from_txt_fld(gen_num: Strnum_vdw|list[Strnum_vdw]) -> None:
+    gen_numlist = list(gen_num)
+    fld_list  = []
     for f in Path.cwd().iterdir():
         if f.is_file() and f.suffix == ".txt":
-            mk_floders(Path('.' / f.stem / 'w_v'))
-
+            fld = Path(Path.cwd() / f.stem / 'w_v')
+            mk_floders(fld)
+            fld_list.append(fld)
+    return fld_list
 
 
 def main() -> None:
     vaspkit_gen = ("KPOINTS", "POTCAR")
 
-    flod_names = ("n_v", "w_v")  # , "w_v_d")
-    cwp = Path.cwd()
-    home = Path.home()
+    fld = Path.cwd() / 'w_v'
+    mk_floders(fld)
+    gen_input_file(fld, 1)
+    check_input_files(fld)
+    result = exc_com(fld, "sbatch vasp_dcu.job")
+    print(result.stderr, '\n', result.stdout)
     # 在当前目录里创建子路径
-    incar = Genincar()
-    for f in cwp.iterdir():
-        if f.is_file() and f.suffix == ".txt":
-            fld = Path(cwp / f.stem / "w_v")
-            mk_floders(fld)
-
-            incar.add_pa(ivdw=12)
-            time.sleep(0.1)
-            with open(fld / "INCAR", "w") as fin:
-                fin.write(str(incar))
-
-            copy_file(fld / "POSCAR", f.name)
-            shutil.copy(home / "vasp_dcu.job", fld)
-
-            time.sleep(0.1)
-            for gen_fl in vaspkit_gen:
-                create_file(fld, gen_fl)
-
-            time.sleep(1)
-            check_input_files(fld)
-            result = exc_com(fld, "sbatch vasp_dcu.job")
-            print(result.stderr, '\n', result.stdout)
+    # for f in cwp.iterdir():
+        # if f.is_file() and f.suffix == ".txt":
+        #     fld = Path(cwp / f.stem / "w_v")
+        #     mk_floders(fld)
+        #
+        #     incar.add_pa(ivdw=12)
+        #     time.sleep(0.1)
+        #     with open(fld / "INCAR", "w") as fin:
+        #         fin.write(str(incar))
+        #
+        #     copy_file(fld / "POSCAR", f.name)
+        #     shutil.copy(home / "vasp_dcu.job", fld)
+        #
+        #     time.sleep(0.1)
+        #     for gen_fl in vaspkit_gen:
+        #         create_file(fld, gen_fl)
+        #
+        #     time.sleep(1)
+        #     check_input_files(fld)
+        #     result = exc_com(fld, "sbatch vasp_dcu.job")
+        #     print(result.stderr, '\n', result.stdout)
             # try:
             #     in_fl = ("INCAR", "POTCAR", "KPOINTS", "POSCAR", "vasp_dcu.job"):
             #     if all(all(Path(file).is_file() and Path(file).stat().st_size > 0 for file in in_fl)):
@@ -118,6 +134,7 @@ def main() -> None:
             # except:
             #     raise Exception()
 
+## 在当前目录创建文件，并提交
 
 if __name__ == '__main__':
     main()
