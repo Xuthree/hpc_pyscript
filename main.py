@@ -5,7 +5,9 @@ from subprocess import CompletedProcess
 from typing import Any
 import time
 from gen_input import Genincar
-
+from enum import Enum
+class Glnum(Enum):
+    w_v
 
 def mk_floders(path) -> None:
     if path.exists():
@@ -45,11 +47,38 @@ def file_is(file_path: Path) -> bool:
     return file_path.exists() and file_path.stat().st_size != 0
 
 
-def check_input_files(ph: Path = Path('./')):
+def check_input_files():
     input_files = ("INCAR", "POTCAR", "KPOINTS", "POSCAR", "vasp_dcu.job")
-    for f in input_files:
-        if not file_is(ph / f):
-            raise Exception(f"{f} is not found in {ph}")
+    miss_meg = []
+
+    for file in  input_files:
+        file_ph = Path("./") / file
+        if not file_is(file_ph):
+            miss_meg.append(f"{file} 不存在或为空")
+
+    if miss_meg:
+        raise Exception("文件存在或为空：\n ".join(miss_meg))
+    else:
+        return True
+
+incar = Genincar()
+def gen_input_file(fld:Path, job_fld, ph:str='w_v') -> None:
+    if ph == 'w_v':
+        incar.add_pa(ivdw=12)
+    with open("INCAR", "w") as f_in:
+        f_in.write(str(incar))
+
+    copy_file(fld / "POSCAR", f.name)
+    shutil.copy(job_fld / "vasp_dcu.job", fld)
+
+    for kp_pot in ('KPOINTS', 'POTCAR'):
+        create_file(fld, kp_pot)
+
+def from_txt_fld(ph: Path, fl_name: str, gen_num=1) -> None:
+    for f in Path.cwd().iterdir():
+        if f.is_file() and f.suffix == ".txt":
+            mk_floders(Path('.' / f.stem / 'w_v'))
+
 
 
 def main() -> None:
@@ -62,8 +91,7 @@ def main() -> None:
     incar = Genincar()
     for f in cwp.iterdir():
         if f.is_file() and f.suffix == ".txt":
-
-            fld = Path(cwp, f.stem, "w_v")
+            fld = Path(cwp / f.stem / "w_v")
             mk_floders(fld)
 
             incar.add_pa(ivdw=12)
@@ -82,6 +110,13 @@ def main() -> None:
             check_input_files(fld)
             result = exc_com(fld, "sbatch vasp_dcu.job")
             print(result.stderr, '\n', result.stdout)
+            # try:
+            #     in_fl = ("INCAR", "POTCAR", "KPOINTS", "POSCAR", "vasp_dcu.job"):
+            #     if all(all(Path(file).is_file() and Path(file).stat().st_size > 0 for file in in_fl)):
+            #         result = exc_com(fld, "sbatch vasp_dcu.job")
+            #         print(result.stderr, '\n', result.stdout)
+            # except:
+            #     raise Exception()
 
 
 if __name__ == '__main__':
