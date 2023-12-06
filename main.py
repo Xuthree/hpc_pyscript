@@ -2,12 +2,14 @@ from pathlib import Path
 import shutil
 import subprocess
 from subprocess import CompletedProcess
-from typing import Any
+from typing import Any, Union
 import time
+import sys
 from gen_input import Genincar
 from enum import Enum
 
-class Strnum_vdw(Enum):
+
+class StrNumVdw(Enum):
     w_v = 1
     n_v = 0
     w_v_d = 2
@@ -21,7 +23,7 @@ def mk_floders(path) -> None:
         print(f"{path} floder is created")
 
 
-def copy_file(ph: Path, fl_name: str) -> None:
+def copy_file(ph: Path, fl_name: Union[str, Path]) -> None:
     if a := Path(ph, fl_name).is_file():  # 说明覆写已存在文件
         print(f"{a} is existed, it would be overwrite")
     shutil.copy(fl_name, ph)
@@ -40,11 +42,14 @@ def exc_com(ph: Path, command_s: str) -> CompletedProcess[str]:
 def create_file(ph: Path, fl_name: str) -> Any:  # 利用vaspkit生成文件
     if fl_name == "KPOINTS":
         command_str = "vaspkit -task 102 -kps M 0.03"
-        return exc_com(ph, command_str)
+        # return exc_com(ph, command_str)
 
-    if fl_name == "POTCAR":
+    elif fl_name == "POTCAR":
         command_str = "vaspkit -task 103"
-        return exc_com(ph, command_str)
+    else:
+        raise Exception("尚未进行支持的输入文件")
+
+    return exc_com(ph, command_str)
 
 
 def file_is(file_path: Path) -> bool:
@@ -53,90 +58,147 @@ def file_is(file_path: Path) -> bool:
 
 def check_input_files(fld):
     files = ("INCAR", "POTCAR", "KPOINTS", "POSCAR", "vasp_dcu.job")
-    input_files = (Path(fld / i)  for i in files)
+    input_files = (Path(fld / i) for i in files)
     miss_meg = []
 
-    for file in  input_files:
+    for file in input_files:
         file_ph = Path("./") / file
         if not file_is(file_ph):
             miss_meg.append(f"{file} 不存在或为空")
 
     if miss_meg:
         raise Exception("文件存在或为空：\n ".join(miss_meg))
-    else:
-        return True
+
+    return True
+
+
+def mk_vdw_fld(gen_num: Union[int, list[int]]) -> list[str]:
+    if isinstance(gen_num, list):
+        fld_list = ""
+        for i in gen_num:
+            fld_list += StrNumVdw(i).name + " "
+        return fld_list.strip().split(' ')
+
+    return StrNumVdw(gen_num).name.split()
+
+
+def parse_num(task_num):
+    length = len(task_num)
+    if length > 1:
+        return [int(i) for i in task_num[-1:0:-1]]
+    return int(task_num)
+
 
 incar = Genincar()
-def gen_input_file(fld:Path, ph:Strnum_vdw, job_fld=Path.home()) -> None:
-    if ph == 1:
-        incar.add_pa(ivdw=12)
-    elif ph == 3:
-        incar.add_pa(ivdw=12,idipol=3, ldipol=True)
-    else:
-        pass
-    with open(fld / "INCAR", "w") as f_in:
-        f_in.write(str(incar))
 
-    copy_file(fld, Path.cwd() / "POSCAR" )
-    shutil.copy(job_fld / "vasp_dcu.job", fld)
 
-    for kp_pot in ('KPOINTS', 'POTCAR'):
-        create_file(fld, kp_pot)
-    print(f"{fld} 文件生成成功")
-
-def from_txt_fld(gen_num: Strnum_vdw|list[Strnum_vdw]) -> None:
-    gen_numlist = list(gen_num)
-    fld_list  = []
-    for f in Path.cwd().iterdir():
+def gen4txt(path: Path):
+    """
+    目录下存在txt格式的结构文件，创建同名文件夹，
+    在同名目录下创建w_v文件夹，
+    在w_v目录下创建vasp输入文件，并提交任务
+    """
+    fld_list: list[Path] = []
+    for f in path.iterdir():
         if f.is_file() and f.suffix == ".txt":
-            fld = Path(Path.cwd() / f.stem / 'w_v')
+            fld = Path(path / f.stem)
             mk_floders(fld)
             fld_list.append(fld)
+            copy_file(fld / "POSCAR", f)
+            fld_list += gen4pos(fld)
     return fld_list
 
 
+def gen4pos(fld: Path, gen_num: Union[int, list[int]] = 1, job_fld=Path.home()):
+    subflds = []
+    for i in mk_vdw_fld(gen_num):
+        subfld = Path(fld / i)
+        vdw_name = StrNumVdw[str(subfld.as_posix()).split('/')[-1]].value
+        if vdw_name == 1:
+            incar.add_pa(ivdw=12)
+        elif vdw_name == 3:
+            incar.add_pa(ivdw=12, idipol=3, ldipol=True)
+        else:
+            pass
+
+        mk_floders(subfld)
+        with open(subfld / "INCAR", "w") as f_in:
+            f_in.write(str(incar))
+
+        copy_file(subfld, fld / Path("POSCAR"))
+        shutil.copy(job_fld / "vasp_dcu.job", subfld)
+        for kp_pot in ('KPOINTS', 'POTCAR'):
+            create_file(subfld, kp_pot)
+        print(f'input flies generate success in {subfld}')
+        subflds.append(subfld)
+    return subflds
+
+
+def gen_scf(fld: Path = Path.cwd()) -> Path:
+    scf_fld = Path(fld / 'scf')
+    mk_floders(scf_fld)
+
+    input_file = [Path(fld / i) for i in ['INCAR', 'KPOINTS', 'POTCAR', 'vasp_dcu.job']]
+    for f in input_file:
+        if not f.is_file():
+            raise Exception(f"{f} 不存在")
+        copy_file(scf_fld, f)
+
+    if not (scf_fld / 'POSCAR').is_file():
+        raise Exception("POSCAR 不存在")
+    shutil.copy(fld / 'CONTCAR', scf_fld / 'POSCAR')
+
+    scf_incar = Genincar(scf_fld / 'INCAR')
+    scf_incar.add_pa(nsw=0)
+    scf_incar.wtite_pa(scf_fld / 'INCAR')
+    return scf_fld
+
+
+# def plot_
+def print_guides():
+    print(
+        """
+            # 1. 运行脚本:python3 t.py cal_path task_type
+            # 2. 三个参数,cal_path为计算路径,task_type为任务类型
+            # 3. 任务类型:
+            # # 1. gen4pos, 默认为11
+            # # 10. gen4pos,n_v, 11. gen4pos,w_v, 12. gen4pos,w_v_d, 
+            # # 101. gen4pos,w_v,n_v, 112. gen4pos,w_v_d, w_v, 102. gen4pos,w_v_d, n_v,
+            # # 1012. gen4pos,w_v_d, w_v, n_v,
+            # # 2. gen4txt, 
+            # # 3. gen_scf
+        """
+    )
+
+
 def main() -> None:
-    vaspkit_gen = ("KPOINTS", "POTCAR")
+    t1 = time.time()
+    if len(sys.argv) < 3:
+        print_guides()
+    _, path, task = sys.argv  # [0], sys.argv[1], sys.argv
 
-    fld = Path.cwd() / 'w_v'
-    mk_floders(fld)
-    gen_input_file(fld, 1)
-    check_input_files(fld)
-    result = exc_com(fld, "sbatch vasp_dcu.job")
-    print(result.stderr, '\n', result.stdout)
-    # 在当前目录里创建子路径
-    # for f in cwp.iterdir():
-        # if f.is_file() and f.suffix == ".txt":
-        #     fld = Path(cwp / f.stem / "w_v")
-        #     mk_floders(fld)
-        #
-        #     incar.add_pa(ivdw=12)
-        #     time.sleep(0.1)
-        #     with open(fld / "INCAR", "w") as fin:
-        #         fin.write(str(incar))
-        #
-        #     copy_file(fld / "POSCAR", f.name)
-        #     shutil.copy(home / "vasp_dcu.job", fld)
-        #
-        #     time.sleep(0.1)
-        #     for gen_fl in vaspkit_gen:
-        #         create_file(fld, gen_fl)
-        #
-        #     time.sleep(1)
-        #     check_input_files(fld)
-        #     result = exc_com(fld, "sbatch vasp_dcu.job")
-        #     print(result.stderr, '\n', result.stdout)
-            # try:
-            #     in_fl = ("INCAR", "POTCAR", "KPOINTS", "POSCAR", "vasp_dcu.job"):
-            #     if all(all(Path(file).is_file() and Path(file).stat().st_size > 0 for file in in_fl)):
-            #         result = exc_com(fld, "sbatch vasp_dcu.job")
-            #         print(result.stderr, '\n', result.stdout)
-            # except:
-            #     raise Exception()
+    path = Path(path)
+    task = parse_num(task)
+    if isinstance(task, list) or task == 1:
+        fld = gen4pos(Path(path), task)
+    elif task == 2:
+        fld = gen4txt(Path(path))
+    elif task == 3:
+        fld = [gen_scf(Path(path))]
+    else:
+        fld = [path]
 
-## 在当前目录创建文件，并提交
+    for fl in fld:
+        try:
+            if check_input_files(fl):
+                result = exc_com(fl, "sbatch vasp_dcu.job")
+                print(result.stderr, '\n', result.stdout)
+                print('submit task, ')
+        except Exception as e:
+            print(e)
+    t2 = time.time()
+    print(f"总共花费{(t2 - t1):.9f}ns")
+
 
 if __name__ == '__main__':
     main()
-
-
