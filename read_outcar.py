@@ -1,6 +1,6 @@
 from pathlib import Path
 import re
-
+import sys
 
 class Outcarinfo:
     def __init__(self, path: Path | str):
@@ -116,10 +116,12 @@ class Outcarinfo:
 
 
 def main():
-    outcar_file_path = Path(r'D:\Documents\Code\vscode\python\小脚本\chem\multiwfn\OUTCAR')
-    outcar = Outcarinfo(outcar_file_path)
-    print(outcar.forces()[-1])
-    print(outcar.total_drift)
+    _, path = sys.argv
+    for ph in Path(path).glob('**/OUTCAR'):
+
+        outcar = Outcarinfo(ph)
+        print(outcar.forces()[-1])
+        print(outcar.total_drift)
 
 
 if __name__ == "__main__":
