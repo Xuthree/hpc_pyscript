@@ -139,8 +139,8 @@ class Genincar:
             raise Exception(f'{item} is not contained')
         return self.params[item.lower()]
 
-    @staticmethod
-    def _read(path):
+    @classmethod
+    def _read(cls, path):
         with open(path, 'r') as f:
             lines = f.readlines()
         raed_params = {}
