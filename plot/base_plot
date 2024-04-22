@@ -1,0 +1,109 @@
+from pathlib import Path
+import re
+from enum import Enum
+from matplotlib import pyplot as plt
+from matplotlib.ticker import MultipleLocator
+import pandas as pd
+
+
+default_plt_config = {
+    'tick_config': {
+        'direction': 'in',
+        'minor.visible': True,
+        'major.size': 6,
+        'major.width': 1.25,
+        'minor.size': 3,
+        'minor.width': 1.25,
+        'labelsize': 16,
+    },
+    'legend_config': {
+        'fontsize': 11,
+        'frameon': False,
+        'loc': 'best',
+        # 'ncol': 1,
+        'columnspacing': 1.5,
+        'borderaxespad': 0,
+    },
+    'font_config': {
+        "family":'serif',
+        "size": 16,
+        "serif": 'Times New Roman'
+    },
+    'axes_config': {
+        'titlesize': 16,
+        'linewidth': 1.25
+    },
+    'mathtext_config':{
+        'fontset': 'stix',
+        'rm': 'serif',
+    },
+    'save_config': {
+        'dpi': 600,
+        'transparent': True,
+        'bbox_inches': 'tight',
+        'size': (5, 4),
+        'format': 'png',
+    },
+    'plot_config': {
+    }
+
+}
+def plt_rc(plt):
+    plt.rc('axes', titlesize=16, linewidth=1.25)
+    tick_conf = {
+        'direction': 'in',
+        'minor.visible': True,
+        'major.size': 6,
+        'major.width': 1.25,
+        'minor.size': 3,
+        'minor.width': 1.25,
+        'labelsize': 16
+         }
+    font_conf = {
+        "family": 'serif',
+        "size": 16,
+        "serif": 'Times New Roman'
+    }
+    # text_conf = {
+    #     'usetex' : True,
+    #     'latex.preamble' : r"\usepackage{amsmath} \usepackage{amssymb} \usepackage{sfmath}"
+    # }
+    plt.rc('xtick', **tick_conf)
+    plt.rc('ytick', **tick_conf)
+    plt.rc('font', **font_conf)
+    # plt.rc('text', **text_conf)
+    plt.rc('mathtext', fontset='stix')
+    plt.rc('lines', linewidth=2)
+    plt.rc('grid', linewidth=2)
+    plt.rc('figure',figsize=(5, 4), dpi=600)
+
+class PlotdataType(Enum):
+    xrd = 1
+    xps = 2
+    xrf = 31
+    ir = 4
+    zeta = 5
+    recovery = 6
+
+
+
+# def get_lim()
+
+class BasePlot:
+    def __init__(self, data_dir, data_file, x_label, y_label, title, ax: plt.Axes):
+        self.data_dir = data_dir
+        self.data_file = data_file
+        self.x_label = x_label
+        self.y_label = y_label
+        self.title = title
+
+    def plot(self):
+        data = self._load_data()
+        self._plot(data)
+
+    def _load_data(self):
+        data_path = Path(self.data_dir, self.data_file)
+        if not data_path.exists():
+            raise FileNotFoundError(f"Data file {data_path} does not exist")
+        data = pd.read_csv(data_path)
+        return data
