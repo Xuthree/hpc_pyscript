@@ -1,10 +1,87 @@
 from typing import Optional, Union
 import re
 from pathlib import Path
+from dataclasses import dataclass
 
 
-# 将p中参数改为数据类，标记
-class Genincar:
+# PARAMETER_
+@dataclass
+class StrParameter:
+    system: str
+    algo: str = 'Fast'
+    prec: str = 'Normal'
+
+
+@dataclass
+class IntParameter:
+    icharg: int  # Choose which dispersion correction meth
+    nelmin: int
+    isif: int = 2
+    ibrion: int = 2  # ionic relaxation: 0-MD 1-quasi-New 2-CG
+    ismear: int = 0  # part. occupancies: -5 Blochl -4-tet -
+    # ispin: int  # spin-polarized calculation
+    ivdw: int = 12
+    istart: int = 1
+    ispin: int = 1  # Spin polarization
+    nsw: int = 300  # number of steps for ionic relaxation
+    nelm: int = 90  # monopol/dipol and quadropole correcti
+    encut: int = 500
+
+
+@dataclass
+class FloatParameter:
+    ediff: float
+    sigma: float = 0.05
+
+
+@dataclass
+class BoolParameter:
+    ldipol: bool
+    loptics: bool
+    addgrid: bool
+    lwave: bool = False
+    lcharg: bool = False
+
+
+@dataclass
+class ExpParameter:
+    ediff:  float = 1e-5
+    ediffg: float = 2e-2
+
+
+@dataclass
+class ListParameter:
+    dipol: list
+    magmom: list
+    ldauu: list
+    ldauj: list
+
+
+@dataclass
+class SpecParameter:
+    lreal: str | bool = 'Auto'
+
+
+@dataclass
+class Parameter(SpecParameter, IntParameter, BoolParameter, FloatParameter, ExpParameter, ListParameter, SpecParameter):
+
+    # def
+    @classcondamethod
+    def _read(cls, path):
+        with open(path, 'r') as f:
+            lines = f.readlines()
+        raed_params = {}
+        for line in lines:
+            if line.startswith('#') or '=' not in line:
+                continue
+            key, value = map(str.strip, line.split("=", 1))
+            value = value.split()[0]
+            raed_params[key.lower()] = value
+
+        return cls(**raed_params)
+
+
+class GenIncar:
     p = {  # dictionary to hold the routine parameters of incar file
         'str_keys': {
             'system',  # name
@@ -149,10 +226,16 @@ class Genincar:
                 continue
             key, value = map(str.strip, line.split("=", 1))
             value = value.split()[0]
+            if key.lower() in cls.p['bool_keys']:
+                value = (value.strip('.').upper() == 'TURE')
             raed_params[key.lower()] = value
 
         return raed_params
 
-    def wtite_pa(self, path):
+    def write2(self, path):
         with open(path, 'w') as f:
             f.write(self.__str__())
+
+
+def test():
+    p = Parameter()

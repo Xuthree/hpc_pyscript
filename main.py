@@ -5,8 +5,9 @@ from subprocess import CompletedProcess
 from typing import Any, Union
 import time
 import sys
-from gen_input import Genincar
+from gen_input import GenIncar
 from enum import Enum
+from read_outcar import ReadOutcar
 
 
 class StrNumVdw(Enum):
@@ -150,7 +151,7 @@ def gen_scf(fld: Path = Path.cwd()) -> Path:
 
     scf_incar = Genincar(scf_fld / 'INCAR')
     scf_incar.add_pa(nsw=0)
-    scf_incar.wtite_pa(scf_fld / 'INCAR')
+    scf_incar.write2(scf_fld / 'INCAR')
     return scf_fld
 
 
@@ -162,42 +163,72 @@ def print_guides():
             # 2. 三个参数,cal_path为计算路径,task_type为任务类型
             # 3. 任务类型:
             # # 1. gen4pos, 默认为11
-            # # 10. gen4pos,n_v, 11. gen4pos,w_v, 12. gen4pos,w_v_d, 
-            # # 101. gen4pos,w_v,n_v, 112. gen4pos,w_v_d, w_v, 102. gen4pos,w_v_d, n_v,
-            # # 1012. gen4pos,w_v_d, w_v, n_v,
+            ### 10. gen4pos,n_v, 11. gen4pos,w_v, 12. gen4pos,w_v_d, 
+            ### 101. gen4pos,w_v,n_v, 112. gen4pos,w_v_d, w_v, 102. gen4pos,w_v_d, n_v,
+            ### 1012. gen4pos,w_v_d, w_v, n_v,
             # # 2. gen4txt, 
             # # 3. gen_scf
+            # # 4. get_scf_energy, 
+            ### 41. converge and eneger
         """
     )
 
 
+def get_converge_and_energy(fld: Path):
+    outcar = ReadOutcar(fld / 'OUTCAR')
+    converge = outcar.is_converge
+    energy = outcar.ionic_energy
+    return converge, energy
+
+
 def main() -> None:
     t1 = time.time()
-    if len(sys.argv) < 3:
+    if len(sys.argv) > 3:
         print_guides()
     _, path, task = sys.argv  # [0], sys.argv[1], sys.argv
 
     path = Path(path)
     task = parse_num(task)
+    fld = None
     if isinstance(task, list) or task == 1:
         fld = gen4pos(Path(path), task)
     elif task == 2:
         fld = gen4txt(Path(path))
     elif task == 3:
         fld = [gen_scf(Path(path))]
-    else:
-        fld = [path]
+    elif task == 4:
+        converge, energy = get_converge_and_energy(Path(path))
+        print(f'task converge: {converge}, energy: {energy}')
+    elif task == 41:
+        cou = 1
+        for fl in path.glob('**/OUTCAR'):
+            if fl.exists() and fl.stat().st_size > 0:
+                try:
+                    converge, energy = get_converge_and_energy(fl.parent)
+                except Exception as e:
+                    print(f'>>>{e}<<< is loomed, maybe outcar have somethings wrong')
+                    continue
 
-    for fl in fld:
-        try:
-            if check_input_files(fl):
-                result = exc_com(fl, "sbatch vasp_dcu.job")
-                print(result.stderr, '\n', result.stdout)
-                print('submit task, ')
-        except Exception as e:
-            print(e)
-    t2 = time.time()
-    print(f"总共花费{(t2 - t1):.9f}ns")
+                if converge:
+                    print(cou)
+                    print(f'>{fl.parent}<')
+                    print(f'--->Get Converged: {converge}  |  Energy: {energy}')
+                else:
+                    print(f'{fl.parent} --->Get Converged: {converge} ')
+                cou += 1
+
+    if fld is not None:
+        for fl in fld:
+            try:
+                if check_input_files(fl):
+                    result = exc_com(fl, "sbatch vasp_dcu.job")
+                    print_guides()
+                    print(result.stderr, '\n', result.stdout)
+            except Exception as e:
+                print(e)
+                continue
+        t2 = time.time()
+        print(f"总共花费{(t2 - t1):.9f}ns")
 
 
 if __name__ == '__main__':
