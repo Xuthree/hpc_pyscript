@@ -103,24 +103,7 @@ def to_file(in_f, out_f_t):
         p.run(['100', '2', '10', '\n', 'q\n'])
     # for out_f in out_f_t:
         # shutil.copy(Path.cwd() / 'output.fch', out_f)
-def test():
-    pass
-    # l = sys.argv
-    # pos = Path(r'D:\Desktop\temp\POSCAR')
-    # if  pos.exists():
-    #     with MultiwfnWrap(pos) as p:
-    #         p.run(['cp2k', '', '0', 'q'])
-    # MultiwfnArgv.set_grid(3)
-    # print(MultiwfnArgv.NCI_CAL.value)
-    # get_orb(r'D:\Desktop\peng\yb\opt\Ybsp.fch', '177-180')
-    # t = [20, 4, 4, '0.01', 3]
-    # with MultiwfnWrap(r'd:\Desktop\peng\yb\opt\Ybsp.fch') as p:
-    #     p.run([20, 4, 4, '0.05', 3, 0, 0])
-    # shutil.copy(MULTIWFN_PATH / 'examples/IRIfill.vmd', Path.cwd() / 'iri.vmd')
-    # ph = Path(r'D:\Desktop\temp\mor_opt\ele\sp3508')
-    # shutil.copy(VMD_SCRIPT/'showorb.vmd',ph)
-    # with open(VMD_SCRIPT/'showorb.vmd', 'r') as f
-        # showrb =
+
 
 if __name__ == '__main__':
     test()
